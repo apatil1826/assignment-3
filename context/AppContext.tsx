@@ -30,13 +30,28 @@ export type Interaction = {
   nextSteps?: string;
 };
 
+export type QuickNote = {
+  id: string;
+  text: string;
+  contactId?: string;
+  createdAt: string;
+};
+
 type AppContextType = {
   contacts: Contact[];
   interactions: Interaction[];
+  quickNotes: QuickNote[];
   addContact: (contact: Omit<Contact, "id" | "createdAt">) => Contact;
   editContact: (id: string, data: Partial<Omit<Contact, "id" | "createdAt">>) => void;
+  deleteContact: (id: string) => void;
   addInteraction: (interaction: Omit<Interaction, "id">) => Interaction;
   editInteraction: (id: string, data: Partial<Omit<Interaction, "id">>) => void;
+  deleteInteraction: (id: string) => void;
+  addQuickNote: (text: string) => void;
+  assignQuickNote: (noteId: string, contactId: string) => void;
+  deleteQuickNote: (id: string) => void;
+  exportData: () => string;
+  importData: (json: string) => void;
 };
 
 const seedContacts: Contact[] = [
@@ -190,12 +205,27 @@ const seedInteractions: Interaction[] = [
   },
 ];
 
+const seedQuickNotes: QuickNote[] = [
+  {
+    id: "qn1",
+    text: "Ask about the new ML framework they mentioned at the meetup",
+    createdAt: "2026-03-18T00:00:00.000Z",
+  },
+  {
+    id: "qn2",
+    text: "Remember to follow up on the referral from last week's coffee chat",
+    contactId: "c2",
+    createdAt: "2026-03-22T00:00:00.000Z",
+  },
+];
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [contacts, setContacts] = useState<Contact[]>(seedContacts);
   const [interactions, setInteractions] =
     useState<Interaction[]>(seedInteractions);
+  const [quickNotes, setQuickNotes] = useState<QuickNote[]>(seedQuickNotes);
 
   function addContact(data: Omit<Contact, "id" | "createdAt">): Contact {
     const newContact: Contact = {
@@ -213,6 +243,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function deleteContact(id: string) {
+    setContacts((prev) => prev.filter((c) => c.id !== id));
+    setInteractions((prev) => prev.filter((i) => i.contactId !== id));
+    setQuickNotes((prev) => prev.map((n) => n.contactId === id ? { ...n, contactId: undefined } : n));
+  }
+
   function addInteraction(data: Omit<Interaction, "id">): Interaction {
     const newInteraction: Interaction = {
       ...data,
@@ -228,9 +264,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function deleteInteraction(id: string) {
+    setInteractions((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  function addQuickNote(text: string) {
+    const note: QuickNote = {
+      id: crypto.randomUUID(),
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    setQuickNotes((prev) => [...prev, note]);
+  }
+
+  function assignQuickNote(noteId: string, contactId: string) {
+    setQuickNotes((prev) =>
+      prev.map((n) => (n.id === noteId ? { ...n, contactId } : n))
+    );
+  }
+
+  function deleteQuickNote(id: string) {
+    setQuickNotes((prev) => prev.filter((n) => n.id !== id));
+  }
+
+  function exportData(): string {
+    return JSON.stringify({ contacts, interactions, quickNotes }, null, 2);
+  }
+
+  function importData(json: string) {
+    const data = JSON.parse(json);
+    if (data.contacts) setContacts(data.contacts);
+    if (data.interactions) setInteractions(data.interactions);
+    if (data.quickNotes) setQuickNotes(data.quickNotes);
+  }
+
   return (
     <AppContext.Provider
-      value={{ contacts, interactions, addContact, editContact, addInteraction, editInteraction }}
+      value={{
+        contacts,
+        interactions,
+        quickNotes,
+        addContact,
+        editContact,
+        deleteContact,
+        addInteraction,
+        editInteraction,
+        deleteInteraction,
+        addQuickNote,
+        assignQuickNote,
+        deleteQuickNote,
+        exportData,
+        importData,
+      }}
     >
       {children}
     </AppContext.Provider>

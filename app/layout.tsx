@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import QuickNotes from "@/components/QuickNotes";
 import { AppProvider } from "@/context/AppContext";
 
 const geistSans = localFont({
@@ -26,6 +27,7 @@ export default function RootLayout({
         <AppProvider>
           <Sidebar />
           <main className="ml-56 min-h-screen p-8">{children}</main>
+          <QuickNotes />
         </AppProvider>
       </body>
     </html>

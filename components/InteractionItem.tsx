@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Interaction } from "@/context/AppContext";
 
 type InteractionItemProps = {
   interaction: Interaction;
+  onDelete?: (id: string) => void;
 };
 
 const typeIcons: Record<string, string> = {
@@ -23,7 +26,7 @@ const typeLabels: Record<string, string> = {
   other: "Other",
 };
 
-export default function InteractionItem({ interaction }: InteractionItemProps) {
+export default function InteractionItem({ interaction, onDelete }: InteractionItemProps) {
   function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-US", {
       month: "short",
@@ -47,6 +50,14 @@ export default function InteractionItem({ interaction }: InteractionItemProps) {
             >
               Edit
             </Link>
+            {onDelete && (
+              <button
+                onClick={() => onDelete(interaction.id)}
+                className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+              >
+                Delete
+              </button>
+            )}
             <p className="text-xs text-slate-400">{formatDate(interaction.date)}</p>
           </div>
         </div>

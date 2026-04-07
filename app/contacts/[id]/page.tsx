@@ -1,13 +1,14 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppContext } from "@/context/AppContext";
 import InteractionItem from "@/components/InteractionItem";
 
 export default function ContactProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { contacts, interactions } = useAppContext();
+  const { contacts, interactions, deleteContact, deleteInteraction } = useAppContext();
+  const router = useRouter();
 
   const contact = contacts.find((c) => c.id === id);
   const contactInteractions = interactions
@@ -33,6 +34,13 @@ export default function ContactProfilePage() {
     });
   }
 
+  function handleDeleteContact() {
+    if (confirm(`Delete ${contact!.name} and all their interactions?`)) {
+      deleteContact(id);
+      router.push("/contacts");
+    }
+  }
+
   return (
     <div>
       <Link
@@ -55,6 +63,12 @@ export default function ContactProfilePage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={handleDeleteContact}
+              className="border border-red-200 text-red-500 text-sm font-medium px-4 py-2 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              Delete
+            </button>
             <Link
               href={`/contacts/${contact.id}/edit`}
               className="border border-gray-200 text-slate-600 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
@@ -74,13 +88,13 @@ export default function ContactProfilePage() {
           <div>
             <p className="text-xs text-slate-400 mb-1">Email</p>
             <p className="text-sm text-slate-900">
-              {contact.email ?? "—"}
+              {contact.email ?? "\u2014"}
             </p>
           </div>
           <div>
             <p className="text-xs text-slate-400 mb-1">LinkedIn</p>
             <p className="text-sm text-slate-900">
-              {contact.linkedin ?? "—"}
+              {contact.linkedin ?? "\u2014"}
             </p>
           </div>
           <div>
@@ -121,7 +135,7 @@ export default function ContactProfilePage() {
         ) : (
           <div>
             {contactInteractions.map((i) => (
-              <InteractionItem key={i.id} interaction={i} />
+              <InteractionItem key={i.id} interaction={i} onDelete={deleteInteraction} />
             ))}
           </div>
         )}
