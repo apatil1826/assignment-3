@@ -7,7 +7,7 @@ import InteractionItem from "@/components/InteractionItem";
 
 export default function ContactProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { contacts, interactions, deleteContact, deleteInteraction } = useAppContext();
+  const { contacts, interactions, quickNotes, deleteContact, deleteInteraction, deleteQuickNote } = useAppContext();
   const router = useRouter();
 
   const contact = contacts.find((c) => c.id === id);
@@ -116,6 +116,34 @@ export default function ContactProfilePage() {
           ))}
         </div>
       </div>
+
+      {/* Quick notes assigned to this contact */}
+      {quickNotes.filter((n) => n.contactId === id).length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+            Notes
+          </h3>
+          <div className="flex flex-col gap-2">
+            {quickNotes
+              .filter((n) => n.contactId === id)
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .map((note) => (
+                <div key={note.id} className="flex items-start justify-between gap-3 bg-amber-50 rounded-lg px-4 py-3">
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-700">{note.text}</p>
+                    <p className="text-xs text-slate-400 mt-1">{formatDate(note.createdAt)}</p>
+                  </div>
+                  <button
+                    onClick={() => deleteQuickNote(note.id)}
+                    className="text-xs text-slate-400 hover:text-red-500 transition-colors mt-0.5"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* Interaction timeline */}
       <div className="bg-white rounded-xl shadow-sm p-6">
