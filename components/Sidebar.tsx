@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
-
 const navItems = [
   { href: "/", label: "Dashboard", icon: DashboardIcon },
   { href: "/contacts", label: "Contacts", icon: ContactsIcon },
@@ -44,9 +42,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto pt-6 px-2">
-        <UserButton afterSignOutUrl="/sign-in" showName />
-      </div>
     </aside>
   );
 }

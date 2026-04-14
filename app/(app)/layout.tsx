@@ -1,5 +1,6 @@
 import Sidebar from "@/components/Sidebar";
 import QuickNotes from "@/components/QuickNotes";
+import TopBar from "@/components/TopBar";
 import { AppProvider } from "@/context/AppContext";
 
 export default function AppLayout({
@@ -10,7 +11,10 @@ export default function AppLayout({
   return (
     <AppProvider>
       <Sidebar />
-      <main className="ml-56 min-h-screen p-8">{children}</main>
+      <div className="ml-56 min-h-screen">
+        <TopBar />
+        <main className="p-8">{children}</main>
+      </div>
       <QuickNotes />
     </AppProvider>
   );

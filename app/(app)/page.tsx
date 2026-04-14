@@ -16,10 +16,9 @@ const allTypes: { value: InteractionType | "all"; label: string }[] = [
 ];
 
 export default function Dashboard() {
-  const { contacts, interactions, loading, exportData, importData } = useAppContext();
+  const { contacts, interactions, loading } = useAppContext();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<InteractionType | "all">("all");
-  const [showImport, setShowImport] = useState(false);
 
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -91,31 +90,6 @@ export default function Dashboard() {
     other: "Other",
   };
 
-  function handleExport() {
-    const data = exportData();
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `nexmap-export-${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        await importData(event.target?.result as string);
-        setShowImport(false);
-      } catch {
-        alert("Invalid file format. Please upload a valid NexMap JSON export.");
-      }
-    };
-    reader.readAsText(file);
-  }
 
   if (loading) {
     return (
@@ -127,37 +101,8 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={handleExport}
-            className="border border-gray-200 text-slate-600 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Export
-          </button>
-          <div className="relative">
-            <button
-              onClick={() => setShowImport(!showImport)}
-              className="border border-gray-200 text-slate-600 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Import
-            </button>
-            {showImport && (
-              <div className="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-10 w-64">
-                <p className="text-xs text-slate-500 mb-2">
-                  Upload a NexMap JSON export file
-                </p>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImport}
-                  className="text-xs text-slate-600"
-                />
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Stats row */}
