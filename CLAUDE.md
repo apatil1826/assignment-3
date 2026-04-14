@@ -1,96 +1,174 @@
-# NexMap — Networking Tracker
+# NexMap — Networking Tracker (Assignment 3: Full Stack)
 
-A personal networking tracker to log contacts, record every interaction, and visualize your professional network. Built with Next.js 14 (App Router) + Tailwind CSS.
+Extending Assignment 2's NexMap with: Clerk auth, Supabase database, and Abstract API for company enrichment. Anyone can sign up and use the app. Data persists across sessions.
 
-## What This App Does
+## Stack
+- **Next.js 14** (App Router)
+- **Tailwind CSS**
+- **Clerk** — authentication (sign up, log in, sign out)
+- **Supabase** — persistent database, scoped to logged-in user
+- **Abstract API (Company Enrichment)** — returns company name, industry, country, description, logo given a domain
 
-You add people you've met or want to stay in touch with. Every time you have a coffee chat, send an email, or meet at an event, you log it. The app shows you who you've been neglecting, what your next steps are, and a visual map of your network.
+## What's New in Assignment 3
+- All data now persists in Supabase (replaces in-memory React Context)
+- Users must be signed in to use the app (Clerk)
+- When a contact is added with a company domain, Abstract API enriches it with industry, country, description, and logo
+- Each user only sees their own contacts and interactions
 
-## Pages & Routes
+---
+
+## Pages & Routes (unchanged from A2, now with real data)
 
 | Route | Page | Description |
 |---|---|---|
-| `/` | Dashboard | Stats overview, recent interactions, contacts due for follow-up |
-| `/contacts` | Contacts List | Searchable grid of all contacts, last interaction, relationship strength |
-| `/contacts/[id]` | Contact Profile | Full profile: details, interaction timeline, notes & next steps |
-| `/log` | Log Interaction | Quick-entry form: pick contact, date, type, notes, next steps |
-| `/network` | Network Map | Visual node graph of connections, clustered by tag/company |
+| `/` | Dashboard | Stats, recent interactions, follow-up nudges |
+| `/contacts` | Contacts List | All contacts with company logo, last interaction |
+| `/contacts/[id]` | Contact Profile | Details, enriched company info, interaction timeline |
+| `/log` | Log Interaction | Quick-entry form: contact, date, type, notes, next steps |
+| `/network` | Network Map | SVG node graph of connections |
 
-## Data Model
+---
 
-All data lives in a React Context (in-memory, resets on refresh — database coming next week).
+## Data Model (Supabase Tables)
 
-```ts
-type Contact = {
-  id: string;
-  name: string;
-  email?: string;
-  linkedin?: string;
-  company?: string;
-  role?: string;
-  tags: string[];         // e.g. ["recruiter", "classmate", "mentor"]
-  createdAt: string;      // ISO date
-};
+```sql
+-- contacts table
+create table contacts (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,           -- Clerk user ID
+  name text not null,
+  email text,
+  linkedin text,
+  company text,
+  company_domain text,             -- e.g. "stripe.com" — used for Abstract API enrichment
+  role text,
+  tags text[],
+  -- Abstract API enriched fields (populated on save)
+  company_industry text,
+  company_country text,
+  company_description text,
+  company_logo_url text,
+  created_at timestamptz default now()
+);
 
-type Interaction = {
-  id: string;
-  contactId: string;
-  date: string;           // ISO date
-  type: "coffee" | "email" | "linkedin" | "event" | "call" | "other";
-  notes: string;
-  nextSteps?: string;
-};
+-- interactions table
+create table interactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,           -- Clerk user ID
+  contact_id uuid references contacts(id) on delete cascade,
+  date date not null,
+  type text not null,              -- coffee | email | linkedin | event | call | other
+  notes text,
+  next_steps text,
+  created_at timestamptz default now()
+);
 ```
 
-## Style Preferences
+### Row Level Security (RLS)
+Enable RLS on both tables. Users can only read/write their own rows:
+```sql
+-- Enable RLS
+alter table contacts enable row level security;
+alter table interactions enable row level security;
 
-- **Aesthetic**: Clean & minimal — like a well-designed notes app
-- **Background**: White (`#ffffff`) with light gray (`#f3f4f6`) for cards/sections
-- **Typography**: Slate-900 for headings, slate-500 for secondary text
-- **Accent color**: Indigo-600 for buttons, links, active states
-- **Cards**: Subtle shadow (`shadow-sm`), rounded-xl, white bg
-- **Spacing**: Generous — lots of whitespace, no cramped layouts
-- **No decorative gradients or heavy illustrations** — let the data breathe
+-- Contacts policy
+create policy "Users can manage their own contacts"
+on contacts for all
+using (user_id = requesting_user_id());
+
+-- Interactions policy
+create policy "Users can manage their own interactions"
+on interactions for all
+using (user_id = requesting_user_id());
+```
+
+---
+
+## External API
+
+### Abstract API — Company Enrichment
+- Endpoint: `GET https://companyenrichment.abstractapi.com/v1/?api_key={KEY}&domain={domain}`
+- Example: `?api_key=YOUR_KEY&domain=stripe.com`
+- Returns: `{ name, domain, country, industry, description, logo }`
+- API key from abstractapi.com (free, 100 requests/month)
+- Call this from a **Next.js API route** (`/api/enrich-company`) — never from the browser (hides the API key)
+- Store all returned fields in Supabase when a contact is created — don't re-fetch on every page load
+- Display on the contact profile: logo, industry pill, country, description
+
+---
+
+## Environment Variables (.env.local)
+
+```
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# Abstract API
+ABSTRACT_API_KEY=
+```
+
+All of these must also be added to Vercel environment variables before deploying.
+
+---
+
+## Auth Flow
+- Wrap the app in Clerk's `<ClerkProvider>`
+- Add `authMiddleware` to protect all routes except `/sign-in` and `/sign-up`
+- Use `auth()` from Clerk in server components to get `userId`
+- Pass `userId` as `user_id` when inserting into Supabase
+- All Supabase queries filter by `user_id` to scope data per user
+
+---
 
 ## Component Structure
 
 ```
 app/
-  layout.tsx              # Shared layout with sidebar nav
-  page.tsx                # Dashboard
+  layout.tsx                  # ClerkProvider + Sidebar
+  page.tsx                    # Dashboard
   contacts/
-    page.tsx              # Contacts list
-    [id]/page.tsx         # Contact profile (dynamic route)
-  log/page.tsx            # Log interaction form
-  network/page.tsx        # Network map
+    page.tsx                  # Contacts list
+    [id]/page.tsx             # Contact profile
+  log/page.tsx                # Log interaction form
+  network/page.tsx            # Network map
+  sign-in/[[...sign-in]]/page.tsx
+  sign-up/[[...sign-up]]/page.tsx
 
 components/
-  Sidebar.tsx             # Shared nav (Dashboard, Contacts, Log, Network)
-  ContactCard.tsx         # Card used in contacts list
-  InteractionItem.tsx     # Single interaction in timeline
-  StatCard.tsx            # Stat summary card for dashboard
-  NetworkGraph.tsx        # SVG/canvas node graph
+  Sidebar.tsx
+  ContactCard.tsx             # Shows Clearbit logo
+  InteractionItem.tsx
+  StatCard.tsx
+  NetworkGraph.tsx
+  CompanyLogo.tsx             # Clearbit <img> with initials fallback
 
-context/
-  AppContext.tsx          # Global state: contacts[], interactions[]
-                          # Actions: addContact, addInteraction
+lib/
+  supabase.ts                 # Supabase client
 ```
 
-## Seed Data
+---
 
-Pre-populate with 5–6 sample contacts and 10–12 interactions so the app looks lived-in on first load. Include a mix of companies, tags, and interaction types.
+## Build Order
+1. Set up Clerk (auth middleware, sign-in/sign-up pages, protect routes)
+2. Set up Supabase (create tables with RLS, connect client)
+3. Connect Clerk + Supabase (Clerk dashboard → Supabase integration)
+4. Replace AppContext with Supabase queries (contacts + interactions)
+5. Build Apollo API route + wire into contact creation form
+6. Add Clearbit logos to ContactCard and Contact Profile
+7. Deploy to Vercel with all env vars
 
-## Playwright MCP
+## Style
+Clean & minimal — white backgrounds, light gray cards, slate typography, indigo accent. Unchanged from Assignment 2.
 
-Configure Playwright MCP and verify:
-1. Navigate to `/log`, fill in the form, submit — confirm the interaction appears on the contact's profile at `/contacts/[id]`
-2. Navigate to `/contacts` and verify all seed contacts are visible
-
-## Dev Notes
-
-- Use Next.js 14 App Router (not Pages Router)
-- Tailwind CSS v3
-- No external UI libraries — build components from scratch with Tailwind
-- Use `crypto.randomUUID()` for generating IDs
-- Dates: store as ISO strings, display as "Jan 12, 2025" with `toLocaleDateString`
-- The network map can use plain SVG — no need for D3 unless you want to add it
+## Supabase MCP
+Configure with: `claude mcp add --transport http supabase https://mcp.supabase.com/mcp`
+Use MCP to create tables, enable RLS, and verify data after interactions are saved.
