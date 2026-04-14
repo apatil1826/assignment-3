@@ -1,6 +1,15 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import { useUser } from "@clerk/nextjs";
+import { supabase } from "@/lib/supabase";
 
 export type Contact = {
   id: string;
@@ -8,8 +17,13 @@ export type Contact = {
   email?: string;
   linkedin?: string;
   company?: string;
+  companyDomain?: string;
   role?: string;
   tags: string[];
+  companyIndustry?: string;
+  companyCountry?: string;
+  companyDescription?: string;
+  companyLogoUrl?: string;
   createdAt: string;
 };
 
@@ -41,261 +55,362 @@ type AppContextType = {
   contacts: Contact[];
   interactions: Interaction[];
   quickNotes: QuickNote[];
-  addContact: (contact: Omit<Contact, "id" | "createdAt">) => Contact;
-  editContact: (id: string, data: Partial<Omit<Contact, "id" | "createdAt">>) => void;
-  deleteContact: (id: string) => void;
-  addInteraction: (interaction: Omit<Interaction, "id">) => Interaction;
-  editInteraction: (id: string, data: Partial<Omit<Interaction, "id">>) => void;
-  deleteInteraction: (id: string) => void;
-  addQuickNote: (text: string) => void;
-  assignQuickNote: (noteId: string, contactId: string) => void;
-  deleteQuickNote: (id: string) => void;
+  loading: boolean;
+  addContact: (
+    contact: Omit<Contact, "id" | "createdAt">
+  ) => Promise<Contact>;
+  editContact: (
+    id: string,
+    data: Partial<Omit<Contact, "id" | "createdAt">>
+  ) => Promise<void>;
+  deleteContact: (id: string) => Promise<void>;
+  addInteraction: (
+    interaction: Omit<Interaction, "id">
+  ) => Promise<Interaction>;
+  editInteraction: (
+    id: string,
+    data: Partial<Omit<Interaction, "id">>
+  ) => Promise<void>;
+  deleteInteraction: (id: string) => Promise<void>;
+  addQuickNote: (text: string) => Promise<void>;
+  assignQuickNote: (noteId: string, contactId: string) => Promise<void>;
+  deleteQuickNote: (id: string) => Promise<void>;
   exportData: () => string;
-  importData: (json: string) => void;
+  importData: (json: string) => Promise<void>;
 };
-
-const seedContacts: Contact[] = [
-  {
-    id: "c1",
-    name: "Priya Sharma",
-    email: "priya@techcorp.com",
-    company: "TechCorp",
-    role: "Engineering Manager",
-    tags: ["mentor", "tech"],
-    createdAt: "2025-09-15T00:00:00.000Z",
-  },
-  {
-    id: "c2",
-    name: "Marcus Johnson",
-    email: "marcus.j@gmail.com",
-    linkedin: "linkedin.com/in/marcusj",
-    company: "Stripe",
-    role: "Senior SWE",
-    tags: ["classmate", "tech"],
-    createdAt: "2025-10-02T00:00:00.000Z",
-  },
-  {
-    id: "c3",
-    name: "Elena Rodriguez",
-    email: "elena.r@capitalgroup.com",
-    company: "Capital Group",
-    role: "Recruiter",
-    tags: ["recruiter", "finance"],
-    createdAt: "2025-10-20T00:00:00.000Z",
-  },
-  {
-    id: "c4",
-    name: "David Kim",
-    linkedin: "linkedin.com/in/davidkim",
-    company: "UChicago",
-    role: "PhD Student",
-    tags: ["classmate", "research"],
-    createdAt: "2025-11-05T00:00:00.000Z",
-  },
-  {
-    id: "c5",
-    name: "Sarah Chen",
-    email: "sarah@openai.com",
-    company: "OpenAI",
-    role: "Research Scientist",
-    tags: ["tech", "AI"],
-    createdAt: "2025-11-18T00:00:00.000Z",
-  },
-  {
-    id: "c6",
-    name: "James Okafor",
-    email: "james.o@mckinsey.com",
-    company: "McKinsey",
-    role: "Associate",
-    tags: ["consulting", "mentor"],
-    createdAt: "2025-12-01T00:00:00.000Z",
-  },
-];
-
-const seedInteractions: Interaction[] = [
-  {
-    id: "i1",
-    contactId: "c1",
-    date: "2026-01-10T00:00:00.000Z",
-    type: "coffee",
-    notes: "Discussed career growth in engineering management. She recommended reading 'The Manager's Path'.",
-    nextSteps: "Send thank-you email and book recommendation list",
-  },
-  {
-    id: "i2",
-    contactId: "c2",
-    date: "2026-01-15T00:00:00.000Z",
-    type: "linkedin",
-    notes: "Reconnected on LinkedIn. He's moving to the payments infra team.",
-  },
-  {
-    id: "i3",
-    contactId: "c3",
-    date: "2026-01-20T00:00:00.000Z",
-    type: "email",
-    notes: "She reached out about a summer internship opportunity in portfolio analytics.",
-    nextSteps: "Send resume by end of week",
-  },
-  {
-    id: "i4",
-    contactId: "c4",
-    date: "2026-02-01T00:00:00.000Z",
-    type: "coffee",
-    notes: "Study session at Regenstein. Talked about his NLP research on low-resource languages.",
-  },
-  {
-    id: "i5",
-    contactId: "c5",
-    date: "2026-02-05T00:00:00.000Z",
-    type: "event",
-    notes: "Met at the Chicago AI Meetup. She gave a talk on RLHF safety research.",
-    nextSteps: "Follow up about the reading list she mentioned",
-  },
-  {
-    id: "i6",
-    contactId: "c6",
-    date: "2026-02-10T00:00:00.000Z",
-    type: "call",
-    notes: "30-min phone call. Advice on case interview prep and choosing between consulting and tech.",
-    nextSteps: "Practice 3 cases before next check-in",
-  },
-  {
-    id: "i7",
-    contactId: "c1",
-    date: "2026-02-20T00:00:00.000Z",
-    type: "email",
-    notes: "Sent her an update on my distributed systems project. She replied with feedback.",
-  },
-  {
-    id: "i8",
-    contactId: "c2",
-    date: "2026-03-01T00:00:00.000Z",
-    type: "coffee",
-    notes: "Met at Plein Air Cafe. Discussed system design interview prep strategies.",
-    nextSteps: "Share my Anki deck for system design",
-  },
-  {
-    id: "i9",
-    contactId: "c3",
-    date: "2026-03-05T00:00:00.000Z",
-    type: "call",
-    notes: "Quick call to follow up on application status. Moved to second round.",
-    nextSteps: "Prepare for technical interview March 15",
-  },
-  {
-    id: "i10",
-    contactId: "c5",
-    date: "2026-03-10T00:00:00.000Z",
-    type: "email",
-    notes: "Emailed about a potential research collaboration on LLM evaluation benchmarks.",
-  },
-  {
-    id: "i11",
-    contactId: "c4",
-    date: "2026-03-15T00:00:00.000Z",
-    type: "event",
-    notes: "Both attended the CS department seminar on federated learning.",
-  },
-  {
-    id: "i12",
-    contactId: "c6",
-    date: "2026-03-20T00:00:00.000Z",
-    type: "linkedin",
-    notes: "He shared an article on consulting industry trends. Commented with my thoughts.",
-  },
-];
-
-const seedQuickNotes: QuickNote[] = [
-  {
-    id: "qn1",
-    text: "Ask about the new ML framework they mentioned at the meetup",
-    createdAt: "2026-03-18T00:00:00.000Z",
-  },
-  {
-    id: "qn2",
-    text: "Remember to follow up on the referral from last week's coffee chat",
-    contactId: "c2",
-    createdAt: "2026-03-22T00:00:00.000Z",
-  },
-];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [contacts, setContacts] = useState<Contact[]>(seedContacts);
-  const [interactions, setInteractions] =
-    useState<Interaction[]>(seedInteractions);
-  const [quickNotes, setQuickNotes] = useState<QuickNote[]>(seedQuickNotes);
+// --- Mappers between camelCase (UI) and snake_case (Supabase) ---
 
-  function addContact(data: Omit<Contact, "id" | "createdAt">): Contact {
-    const newContact: Contact = {
-      ...data,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    setContacts((prev) => [...prev, newContact]);
-    return newContact;
+function mapContactFromDb(row: Record<string, unknown>): Contact {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    email: (row.email as string) || undefined,
+    linkedin: (row.linkedin as string) || undefined,
+    company: (row.company as string) || undefined,
+    companyDomain: (row.company_domain as string) || undefined,
+    role: (row.role as string) || undefined,
+    tags: (row.tags as string[]) || [],
+    companyIndustry: (row.company_industry as string) || undefined,
+    companyCountry: (row.company_country as string) || undefined,
+    companyDescription: (row.company_description as string) || undefined,
+    companyLogoUrl: (row.company_logo_url as string) || undefined,
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapInteractionFromDb(row: Record<string, unknown>): Interaction {
+  return {
+    id: row.id as string,
+    contactId: row.contact_id as string,
+    date: row.date as string,
+    type: row.type as InteractionType,
+    notes: (row.notes as string) || "",
+    nextSteps: (row.next_steps as string) || undefined,
+  };
+}
+
+function mapQuickNoteFromDb(row: Record<string, unknown>): QuickNote {
+  return {
+    id: row.id as string,
+    text: row.text as string,
+    contactId: (row.contact_id as string) || undefined,
+    createdAt: row.created_at as string,
+  };
+}
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const { user } = useUser();
+  const userId = user?.id;
+
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [quickNotes, setQuickNotes] = useState<QuickNote[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch all data when userId is available
+  const fetchData = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+
+    const [contactsRes, interactionsRes, notesRes] = await Promise.all([
+      supabase
+        .from("contacts")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("interactions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("date", { ascending: false }),
+      supabase
+        .from("quick_notes")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (contactsRes.data)
+      setContacts(contactsRes.data.map(mapContactFromDb));
+    if (interactionsRes.data)
+      setInteractions(interactionsRes.data.map(mapInteractionFromDb));
+    if (notesRes.data)
+      setQuickNotes(notesRes.data.map(mapQuickNoteFromDb));
+
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // --- Contacts ---
+
+  async function addContact(
+    data: Omit<Contact, "id" | "createdAt">
+  ): Promise<Contact> {
+    // Enrich company data if a domain is provided
+    let enriched: Record<string, string | null> = {};
+    if (data.companyDomain) {
+      try {
+        const res = await fetch(
+          `/api/enrich-company?domain=${encodeURIComponent(data.companyDomain)}`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          enriched = {
+            company_industry: json.industry || null,
+            company_country: json.country || null,
+            company_description: json.description || null,
+            company_logo_url: json.logo || null,
+          };
+          // Use the enriched company name if we don't already have one
+          if (!data.company && json.name) {
+            data = { ...data, company: json.name };
+          }
+        }
+      } catch {
+        // Enrichment is best-effort — proceed without it
+      }
+    }
+
+    const { data: rows, error } = await supabase
+      .from("contacts")
+      .insert({
+        user_id: userId,
+        name: data.name,
+        email: data.email || null,
+        linkedin: data.linkedin || null,
+        company: data.company || null,
+        company_domain: data.companyDomain || null,
+        role: data.role || null,
+        tags: data.tags,
+        ...enriched,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    const contact = mapContactFromDb(rows);
+    setContacts((prev) => [contact, ...prev]);
+    return contact;
   }
 
-  function editContact(id: string, data: Partial<Omit<Contact, "id" | "createdAt">>) {
+  async function editContact(
+    id: string,
+    data: Partial<Omit<Contact, "id" | "createdAt">>
+  ) {
+    const update: Record<string, unknown> = {};
+    if (data.name !== undefined) update.name = data.name;
+    if (data.email !== undefined) update.email = data.email || null;
+    if (data.linkedin !== undefined) update.linkedin = data.linkedin || null;
+    if (data.company !== undefined) update.company = data.company || null;
+    if (data.companyDomain !== undefined)
+      update.company_domain = data.companyDomain || null;
+    if (data.role !== undefined) update.role = data.role || null;
+    if (data.tags !== undefined) update.tags = data.tags;
+
+    // Re-enrich if domain changed
+    const existing = contacts.find((c) => c.id === id);
+    if (data.companyDomain && data.companyDomain !== existing?.companyDomain) {
+      try {
+        const res = await fetch(
+          `/api/enrich-company?domain=${encodeURIComponent(data.companyDomain)}`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          update.company_industry = json.industry || null;
+          update.company_country = json.country || null;
+          update.company_description = json.description || null;
+          update.company_logo_url = json.logo || null;
+          data = {
+            ...data,
+            companyIndustry: json.industry || undefined,
+            companyCountry: json.country || undefined,
+            companyDescription: json.description || undefined,
+            companyLogoUrl: json.logo || undefined,
+          };
+        }
+      } catch {
+        // Best-effort
+      }
+    }
+
+    const { error } = await supabase
+      .from("contacts")
+      .update(update)
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) throw error;
     setContacts((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...data } : c))
     );
   }
 
-  function deleteContact(id: string) {
+  async function deleteContact(id: string) {
+    const { error } = await supabase
+      .from("contacts")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) throw error;
     setContacts((prev) => prev.filter((c) => c.id !== id));
     setInteractions((prev) => prev.filter((i) => i.contactId !== id));
-    setQuickNotes((prev) => prev.map((n) => n.contactId === id ? { ...n, contactId: undefined } : n));
+    setQuickNotes((prev) =>
+      prev.map((n) =>
+        n.contactId === id ? { ...n, contactId: undefined } : n
+      )
+    );
   }
 
-  function addInteraction(data: Omit<Interaction, "id">): Interaction {
-    const newInteraction: Interaction = {
-      ...data,
-      id: crypto.randomUUID(),
-    };
-    setInteractions((prev) => [...prev, newInteraction]);
-    return newInteraction;
+  // --- Interactions ---
+
+  async function addInteraction(
+    data: Omit<Interaction, "id">
+  ): Promise<Interaction> {
+    const { data: rows, error } = await supabase
+      .from("interactions")
+      .insert({
+        user_id: userId,
+        contact_id: data.contactId,
+        date: data.date,
+        type: data.type,
+        notes: data.notes,
+        next_steps: data.nextSteps || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    const interaction = mapInteractionFromDb(rows);
+    setInteractions((prev) => [interaction, ...prev]);
+    return interaction;
   }
 
-  function editInteraction(id: string, data: Partial<Omit<Interaction, "id">>) {
+  async function editInteraction(
+    id: string,
+    data: Partial<Omit<Interaction, "id">>
+  ) {
+    const update: Record<string, unknown> = {};
+    if (data.contactId !== undefined) update.contact_id = data.contactId;
+    if (data.date !== undefined) update.date = data.date;
+    if (data.type !== undefined) update.type = data.type;
+    if (data.notes !== undefined) update.notes = data.notes;
+    if (data.nextSteps !== undefined)
+      update.next_steps = data.nextSteps || null;
+
+    const { error } = await supabase
+      .from("interactions")
+      .update(update)
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) throw error;
     setInteractions((prev) =>
       prev.map((i) => (i.id === id ? { ...i, ...data } : i))
     );
   }
 
-  function deleteInteraction(id: string) {
+  async function deleteInteraction(id: string) {
+    const { error } = await supabase
+      .from("interactions")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) throw error;
     setInteractions((prev) => prev.filter((i) => i.id !== id));
   }
 
-  function addQuickNote(text: string) {
-    const note: QuickNote = {
-      id: crypto.randomUUID(),
-      text,
-      createdAt: new Date().toISOString(),
-    };
-    setQuickNotes((prev) => [...prev, note]);
+  // --- Quick Notes ---
+
+  async function addQuickNote(text: string) {
+    const { data: rows, error } = await supabase
+      .from("quick_notes")
+      .insert({ user_id: userId, text })
+      .select()
+      .single();
+
+    if (error) throw error;
+    const note = mapQuickNoteFromDb(rows);
+    setQuickNotes((prev) => [note, ...prev]);
   }
 
-  function assignQuickNote(noteId: string, contactId: string) {
+  async function assignQuickNote(noteId: string, contactId: string) {
+    const { error } = await supabase
+      .from("quick_notes")
+      .update({ contact_id: contactId })
+      .eq("id", noteId)
+      .eq("user_id", userId);
+
+    if (error) throw error;
     setQuickNotes((prev) =>
       prev.map((n) => (n.id === noteId ? { ...n, contactId } : n))
     );
   }
 
-  function deleteQuickNote(id: string) {
+  async function deleteQuickNote(id: string) {
+    const { error } = await supabase
+      .from("quick_notes")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
+
+    if (error) throw error;
     setQuickNotes((prev) => prev.filter((n) => n.id !== id));
   }
+
+  // --- Import / Export ---
 
   function exportData(): string {
     return JSON.stringify({ contacts, interactions, quickNotes }, null, 2);
   }
 
-  function importData(json: string) {
+  async function importData(json: string) {
     const data = JSON.parse(json);
-    if (data.contacts) setContacts(data.contacts);
-    if (data.interactions) setInteractions(data.interactions);
-    if (data.quickNotes) setQuickNotes(data.quickNotes);
+    if (!userId) return;
+
+    if (data.contacts) {
+      for (const c of data.contacts as Contact[]) {
+        await supabase.from("contacts").insert({
+          user_id: userId,
+          name: c.name,
+          email: c.email || null,
+          linkedin: c.linkedin || null,
+          company: c.company || null,
+          company_domain: c.companyDomain || null,
+          role: c.role || null,
+          tags: c.tags,
+        });
+      }
+    }
+    // Re-fetch after import to get server-generated IDs
+    await fetchData();
   }
 
   return (
@@ -304,6 +419,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         contacts,
         interactions,
         quickNotes,
+        loading,
         addContact,
         editContact,
         deleteContact,

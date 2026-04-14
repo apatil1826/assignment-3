@@ -16,7 +16,7 @@ const allTypes: { value: InteractionType | "all"; label: string }[] = [
 ];
 
 export default function Dashboard() {
-  const { contacts, interactions, exportData, importData } = useAppContext();
+  const { contacts, interactions, loading, exportData, importData } = useAppContext();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<InteractionType | "all">("all");
   const [showImport, setShowImport] = useState(false);
@@ -106,15 +106,23 @@ export default function Dashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
-        importData(event.target?.result as string);
+        await importData(event.target?.result as string);
         setShowImport(false);
       } catch {
         alert("Invalid file format. Please upload a valid NexMap JSON export.");
       }
     };
     reader.readAsText(file);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm text-slate-400">Loading...</p>
+      </div>
+    );
   }
 
   return (

@@ -12,10 +12,11 @@ export default function NewContactPage() {
   const [email, setEmail] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [company, setCompany] = useState("");
+  const [companyDomain, setCompanyDomain] = useState("");
   const [role, setRole] = useState("");
   const [tagsInput, setTagsInput] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -24,11 +25,12 @@ export default function NewContactPage() {
       .map((t) => t.trim())
       .filter(Boolean);
 
-    const contact = addContact({
+    const contact = await addContact({
       name: name.trim(),
       email: email.trim() || undefined,
       linkedin: linkedin.trim() || undefined,
       company: company.trim() || undefined,
+      companyDomain: companyDomain.trim() || undefined,
       role: role.trim() || undefined,
       tags,
     });
@@ -87,6 +89,20 @@ export default function NewContactPage() {
               className={inputClass}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            Company Domain
+            <span className="text-slate-400 font-normal ml-1">(for enrichment, e.g. stripe.com)</span>
+          </label>
+          <input
+            type="text"
+            value={companyDomain}
+            onChange={(e) => setCompanyDomain(e.target.value)}
+            placeholder="e.g. stripe.com"
+            className={inputClass}
+          />
         </div>
 
         <div>

@@ -32,11 +32,11 @@ function LogForm() {
   const [notes, setNotes] = useState("");
   const [nextSteps, setNextSteps] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!contactId || !notes.trim()) return;
 
-    addInteraction({
+    await addInteraction({
       contactId,
       date: new Date(date).toISOString(),
       type,

@@ -6,7 +6,7 @@ import { useAppContext } from "@/context/AppContext";
 import ContactCard from "@/components/ContactCard";
 
 export default function ContactsPage() {
-  const { contacts, interactions } = useAppContext();
+  const { contacts, interactions, loading } = useAppContext();
   const [search, setSearch] = useState("");
 
   const filtered = contacts.filter((c) => {
@@ -28,6 +28,14 @@ export default function ContactsPage() {
 
   function getInteractionCount(contactId: string) {
     return interactions.filter((i) => i.contactId === contactId).length;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <p className="text-sm text-slate-400">Loading...</p>
+      </div>
+    );
   }
 
   return (

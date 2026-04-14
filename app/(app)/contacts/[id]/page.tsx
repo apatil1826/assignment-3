@@ -34,9 +34,9 @@ export default function ContactProfilePage() {
     });
   }
 
-  function handleDeleteContact() {
+  async function handleDeleteContact() {
     if (confirm(`Delete ${contact!.name} and all their interactions?`)) {
-      deleteContact(id);
+      await deleteContact(id);
       router.push("/contacts");
     }
   }
@@ -53,14 +53,41 @@ export default function ContactProfilePage() {
       {/* Profile header */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              {contact.name}
-            </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              {contact.role}
-              {contact.company ? ` at ${contact.company}` : ""}
-            </p>
+          <div className="flex items-start gap-4">
+            {contact.companyLogoUrl ? (
+              <img
+                src={contact.companyLogoUrl}
+                alt={`${contact.company} logo`}
+                className="w-12 h-12 rounded-lg object-contain bg-gray-50 border border-gray-100 p-1"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-semibold text-lg">
+                {contact.name.charAt(0)}
+              </div>
+            )}
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                {contact.name}
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {contact.role}
+                {contact.company ? ` at ${contact.company}` : ""}
+              </p>
+              {(contact.companyIndustry || contact.companyCountry) && (
+                <div className="flex gap-2 mt-2">
+                  {contact.companyIndustry && (
+                    <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                      {contact.companyIndustry}
+                    </span>
+                  )}
+                  {contact.companyCountry && (
+                    <span className="text-xs bg-gray-100 text-slate-600 px-2 py-0.5 rounded-full">
+                      {contact.companyCountry}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
             <button
@@ -115,6 +142,15 @@ export default function ContactProfilePage() {
             </span>
           ))}
         </div>
+
+        {contact.companyDescription && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs text-slate-400 mb-1">About {contact.company}</p>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {contact.companyDescription}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Quick notes assigned to this contact */}

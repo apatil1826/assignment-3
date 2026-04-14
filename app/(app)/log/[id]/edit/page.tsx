@@ -40,11 +40,11 @@ export default function EditInteractionPage() {
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!contactId || !notes.trim()) return;
 
-    editInteraction(id, {
+    await editInteraction(id, {
       contactId,
       date: new Date(date).toISOString(),
       type,
